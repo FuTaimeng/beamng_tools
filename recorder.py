@@ -22,7 +22,7 @@ record_param = {
     'model': model_name,
     'time': record_time
 }
-with open(os.path.sep.join((dataroot, 'record_param.txt')), 'w') as f:
+with open(os.path.sep.join((dataroot, 'record_config.txt')), 'w') as f:
     json.dump(record_param, f)
 
 USERPATH = fr'{os.getenv("LOCALAPPDATA")}/BeamNG.drive'

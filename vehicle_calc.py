@@ -83,6 +83,9 @@ res['RL_I'] = calc_inertia_mat(pos_wheels[rear_left], mass_wheels[rear_left], re
 res['RR_I'] = calc_inertia_mat(pos_wheels[rear_right], mass_wheels[rear_right], res['RR_center'])[0, 0]
 res['I'] = calc_inertia_mat(pos, mass, cog).tolist()
 
+res['mass'] = mass.tolist()
+res['mass_pts'] = (pos - cog).tolist()
+
 with open(os.path.sep.join((path, 'nodes_turnleft.txt')), 'r') as f:
     nodes = eval(f.readline())
 nodes_wheels = {}
