@@ -6,35 +6,36 @@ import matplotlib.pyplot as plt
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 
-poses = np.loadtxt('data/pose.txt')
-cam_poses = np.loadtxt('data/cam_pose.txt')
-cogs = np.loadtxt('data/cog.txt')
+dataroot = 'data_plane'
+poses = np.loadtxt(f'{dataroot}/pose.txt')
+cam_poses = np.loadtxt(f'{dataroot}/cam_pose.txt')
+cogs = np.loadtxt(f'{dataroot}/cog.txt')
+wheel_speed = np.loadtxt(f'{dataroot}/wheel_speed.txt')
 
-pts = []
+def extrinsic_trans(st=0, end=10):
+    pts = []
+    for i in range(st, end):
+        pose = pp.SE3(poses[i, :7])
+        cam_pos = torch.tensor(cam_poses[i, :3], dtype=torch.float32)
+        cam_pos_wrt_vehicle = pose.Inv() @ cam_pos
+        # print(cam_pos_wrt_vehicle, cam_pos_wrt_vehicle.norm())
+        pts.append(cam_pos_wrt_vehicle)
+    pts = torch.stack(pts)
+    print('mean:', torch.mean(pts, dim=0))
+    return pts
 
-# for i in range(50, 60):
-#     # print('cog <- pos', cogs[i] - poses[i, :3])
-#     # print('cog <- cam_pos', cogs[i] - cam_poses[i, :3])
-#     # print('cam_pos <- pos', cam_poses[i, :3] - poses[i, :3])
+def check_velocity(st=1, end=10):
+    for i in range(st, end):
+        p1 = np.array(poses[i-1, :3])
+        p2 = np.array(poses[i+1, :3])
+        v = np.array(poses[i, 7:])
+        v_calc = (p2 - p1) / 0.2
+        ws = wheel_speed[i]
+        print(v, v_calc)
+        print(np.linalg.norm(v), ws)
 
-#     pose = pp.SE3(poses[i])
-#     cam_pos = torch.tensor(cam_poses[i, :3], dtype=torch.float32)
-#     cam_pos_wrt_vehicle = pose.Inv() @ cam_pos
-#     print(cam_pos_wrt_vehicle, cam_pos_wrt_vehicle.norm())
-#     pts.append(cam_pos_wrt_vehicle)
-#     # input()
+# extrinsic_trans(0, 50)
+# extrinsic_trans(1350, 1355)
+# extrinsic_trans(0, 1355)
 
-for i in range(690, 700):
-    # print('cog <- pos', cogs[i] - poses[i, :3])
-    # print('cog <- cam_pos', cogs[i] - cam_poses[i, :3])
-    # print('cam_pos <- pos', cam_poses[i, :3] - poses[i, :3])
-
-    pose = pp.SE3(poses[i])
-    cam_pos = torch.tensor(cam_poses[i, :3], dtype=torch.float32)
-    cam_pos_wrt_vehicle = pose.Inv() @ cam_pos
-    print(cam_pos_wrt_vehicle, cam_pos_wrt_vehicle.norm())
-    pts.append(cam_pos_wrt_vehicle)
-    # input()
-
-pts = torch.stack(pts).numpy()
-print(np.mean(pts, axis=0))
+check_velocity(100, 120)

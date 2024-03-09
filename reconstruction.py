@@ -1,17 +1,22 @@
 import os
 import cv2
+import json
 import torch
 import numpy as np
 import pypose as pp
 import open3d as o3d
 import matplotlib.pyplot as plt
 
-dataroot = 'data'
+suffix = '_plane'
+dataroot = f'data{suffix}'
 poses = np.loadtxt(os.path.sep.join((dataroot, 'pose.txt')))
 
-resolution = (640, 480)
-fov_y = 70.0 /180*np.pi
-near_far_planes = (0.05, 100)
+with open(os.path.sep.join((dataroot, 'cam_param.txt')), 'r') as f:
+    cam_param = json.load(f)
+
+resolution = cam_param['resolution']
+fov_y = cam_param['fov_y'] /180*np.pi
+near_far_planes = cam_param['near_far_planes']
 f = resolution[1]/2 / np.tan(fov_y/2)
 cx, cy = resolution[0]/2, resolution[1]/2
 K = torch.tensor([
@@ -22,10 +27,10 @@ K = torch.tensor([
 K_inv = torch.linalg.inv(K)
 print('K_inv', K_inv)
 
-trans = torch.tensor((0.55017245, -1.151419, 1.6491005), dtype=torch.float32)
-z = torch.tensor((0,-1,-0.5), dtype=torch.float32)
+trans = torch.tensor(cam_param['trans'], dtype=torch.float32)
+z = torch.tensor(cam_param['dir'], dtype=torch.float32)
 z /= z.norm()
-y = -torch.tensor((0,-0.5,1), dtype=torch.float32)
+y = -torch.tensor(cam_param['up'], dtype=torch.float32)
 y /= y.norm()
 x = torch.cross(y, z)
 x /= x.norm()
@@ -60,12 +65,12 @@ def gather():
     return np.array(pts), np.stack(colors)
 
 n_frame = len(poses)
-# n_frame = 200
+# n_frame = 2000
 start_frame = 0
 for idx in range(start_frame, n_frame):
-    print('processing {}/{} ...'.format(idx, n_frame))
+    print('\rprocessing {}/{} ...'.format(idx, n_frame), end='')
 
-    pose = pp.SE3(poses[idx])
+    pose = pp.SE3(poses[idx, :7])
     rgb = cv2.imread(os.path.sep.join((dataroot, 'rgb', '{:0>6}.png'.format(idx))), cv2.IMREAD_COLOR)
     seg = cv2.imread(os.path.sep.join((dataroot, 'seg', '{:0>6}.png'.format(idx))), cv2.IMREAD_COLOR)
     depth = np.load(os.path.sep.join((dataroot, 'depth', '{:0>6}.npy'.format(idx))))
@@ -103,11 +108,12 @@ for idx in range(start_frame, n_frame):
 
 pts_np, colors = gather()
 print('num grids', len(pts_np))
+np.save(os.path.sep.join((dataroot, 'cloud.npy')), pts_np)
 
 pcd = o3d.geometry.PointCloud()
 pcd.points = o3d.utility.Vector3dVector(pts_np)
 pcd.colors = o3d.utility.Vector3dVector(colors)
-o3d.io.write_point_cloud("cloud.ply", pcd, write_ascii=True)
+o3d.io.write_point_cloud(os.path.sep.join((dataroot, 'cloud.ply')), pcd, write_ascii=False)
 
 ax.scatter(pts_np[:, 0], pts_np[:, 1], pts_np[:, 2], c=colors)
 ax.axis('equal')
