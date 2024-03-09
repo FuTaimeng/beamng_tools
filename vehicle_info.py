@@ -1,3 +1,4 @@
+import os
 import time
 
 import beamngpy
@@ -23,12 +24,14 @@ bng.open()
 # with open('levels_scenarios.txt', 'w') as f:
 #     f.write(str(levels_scenarios))
 
+model = 'pickup'
+os.makedirs('vehicle_'+model, exist_ok=True)
+
 # Create a scenario in west_coast_usa called 'example'
 # scenario = Scenario('west_coast_usa', 'example')
 scenario = Scenario('gridmap_v2', 'Collect Mountain')
 # Create an ETK800 with the licence plate 'PYTHON'
-# vehicle = Vehicle('ego_vehicle', model='etk800', license='PYTHON')
-vehicle = Vehicle('ego_vehicle', model='pickup', license='PYTHON')
+vehicle = Vehicle('ego_vehicle', model=model, license='PYTHON')
 # Add it to our scenario at this position and rotation
 # scenario.add_vehicle(vehicle, pos=(-717, 101, 118), rot_quat=(0, 0, 0.3826834, 0.9238795))
 scenario.add_vehicle(vehicle, pos=(-337.682, -491.360, 100.304), rot_quat=(0, 0, 0, 1))
@@ -45,21 +48,21 @@ time.sleep(1)
 vehicle.poll_sensors()
 state = vehicle.state
 state['cog'] = vehicle.get_center_of_gravity()
-with open('state.txt', 'w') as f:
+with open(os.path.sep.join(('vehicle_'+model, 'state.txt')), 'w') as f:
     f.write(str(state))
 
 mesh = beamngpy.sensors.Mesh('mesh_sensor', bng, vehicle)
-# mesh.poll()
-# nodes = mesh.get_node_positions()
-# with open('nodes.txt', 'w') as f:
-#     f.write(str(nodes))
+mesh.poll()
+nodes = mesh.get_node_positions()
+with open(os.path.sep.join(('vehicle_'+model, 'nodes.txt')), 'w') as f:
+    f.write(str(nodes))
 
 print('tuen left now')
 time.sleep(5)
 
 mesh.poll()
 nodes = mesh.get_node_positions()
-with open('nodes_turnleft.txt', 'w') as f:
+with open(os.path.sep.join(('vehicle_'+model, 'nodes_turnleft.txt')), 'w') as f:
     f.write(str(nodes))
 
 bng.close()

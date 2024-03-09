@@ -1,8 +1,11 @@
+import os
 import json
 import numpy as np
 import matplotlib.pyplot as plt
 
-with open('nodes.txt', 'r') as f:
+path = 'vehicle_pickup'
+
+with open(os.path.sep.join((path, 'nodes.txt')), 'r') as f:
     nodes = eval(f.readline())
 nodes_wheels = {}
 for k, v in nodes.items():
@@ -21,7 +24,7 @@ def get_mass_pos(nodes):
     return mass, pos
 
 mass, pos = get_mass_pos(nodes)
-_, pos_wheels = get_mass_pos(nodes_wheels)
+mass_wheels, pos_wheels = get_mass_pos(nodes_wheels)
 
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
@@ -52,7 +55,7 @@ for i in ['FL', 'FR', 'RL', 'RR']:
     ax.scatter(x, y, z, color='g', s=50)
     ax.plot([x, x], [y, y], [z, z-r], color='r')
 
-with open('state.txt', 'r') as f:
+with open(os.path.sep.join((path, 'state.txt')), 'r') as f:
     state = eval(f.readline())
 vpos = np.array(state['pos'])
 cog = np.array(state['cog']) - vpos
@@ -74,9 +77,13 @@ def calc_inertia_mat(pos, mass, cog):
         I += I_pt
     return I
 
+res['FL_I'] = calc_inertia_mat(pos_wheels[front_left], mass_wheels[front_left], res['FL_center'])[0, 0]
+res['FR_I'] = calc_inertia_mat(pos_wheels[front_right], mass_wheels[front_right], res['FR_center'])[0, 0]
+res['RL_I'] = calc_inertia_mat(pos_wheels[rear_left], mass_wheels[rear_left], res['RL_center'])[0, 0]
+res['RR_I'] = calc_inertia_mat(pos_wheels[rear_right], mass_wheels[rear_right], res['RR_center'])[0, 0]
 res['I'] = calc_inertia_mat(pos, mass, cog).tolist()
 
-with open('nodes_turnleft.txt', 'r') as f:
+with open(os.path.sep.join((path, 'nodes_turnleft.txt')), 'r') as f:
     nodes = eval(f.readline())
 nodes_wheels = {}
 for k, v in nodes.items():
@@ -94,11 +101,11 @@ x, y, z = np.mean(pos_wheels.T, axis=1)
 ax.plot([x, x+n[0]], [y, y+n[1]], [z, z+n[2]], color='purple')
 
 ang = np.arccos(np.abs(n[1]))
-print(n, np.linalg.norm(n), ang*180/np.pi)
-res['max_turn_ang'] = ang
+# print(n, np.linalg.norm(n), ang*180/np.pi)
+res['max_turn_rad'] = ang
 
 print(res)
-with open('vehicle_config.txt', 'w') as f:
+with open(os.path.sep.join((path, 'vehicle_config.txt')), 'w') as f:
     f.write(json.dumps(res))
 
 ax.axis('equal')

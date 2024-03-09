@@ -11,6 +11,19 @@ suffix = '_plane'
 dataroot = f'data{suffix}'
 poses = np.loadtxt(os.path.sep.join((dataroot, 'pose.txt')))
 
+grid_length = 0.2
+start_frame = 0
+end_frame = len(poses)
+# end_frame = 2000
+
+config = {
+    'grid_length': grid_length,
+    'start_frame': start_frame,
+    'end_frame': end_frame
+}
+with open(os.path.sep.join((dataroot, 'cloud_config.txt')), 'w') as f:
+    json.dump(config, f)
+
 with open(os.path.sep.join((dataroot, 'cam_param.txt')), 'r') as f:
     cam_param = json.load(f)
 
@@ -41,7 +54,6 @@ extrinsic = pp.SE3(torch.cat((trans, q.tensor())))
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 
-grid_length = 0.2
 map = {}
 
 def add_point(key, data):
@@ -64,11 +76,9 @@ def gather():
         colors.append(grid['rgb'])
     return np.array(pts), np.stack(colors)
 
-n_frame = len(poses)
-# n_frame = 2000
-start_frame = 0
-for idx in range(start_frame, n_frame):
-    print('\rprocessing {}/{} ...'.format(idx, n_frame), end='')
+
+for idx in range(start_frame, end_frame):
+    print('\rprocessing {}/{} ...'.format(idx, end_frame), end='')
 
     pose = pp.SE3(poses[idx, :7])
     rgb = cv2.imread(os.path.sep.join((dataroot, 'rgb', '{:0>6}.png'.format(idx))), cv2.IMREAD_COLOR)
