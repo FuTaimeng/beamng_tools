@@ -103,7 +103,7 @@ n = svd[0][:, -1]
 x, y, z = np.mean(pos_wheels.T, axis=1)
 ax.plot([x, x+n[0]], [y, y+n[1]], [z, z+n[2]], color='purple')
 
-ang = np.arccos(np.abs(n[1]))
+ang = np.arccos(np.abs(n[0]))
 # print(n, np.linalg.norm(n), ang*180/np.pi)
 res['max_turn_rad'] = ang
 
