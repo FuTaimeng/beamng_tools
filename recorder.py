@@ -10,7 +10,20 @@ import pypose as pp
 import beamngpy
 from beamngpy import BeamNGpy, Scenario, Vehicle
 
-dataroot = 'data'
+dataroot = 'data_plane'
+os.makedirs(dataroot, exist_ok=True)
+
+scenario_name = 'gridmap_v2'
+model_name = 'pickup'
+record_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+record_param = {
+    'scenario': scenario_name,
+    'model': model_name,
+    'time': record_time
+}
+with open(os.path.sep.join((dataroot, 'record_param.txt')), 'w') as f:
+    json.dump(record_param, f)
 
 USERPATH = fr'{os.getenv("LOCALAPPDATA")}/BeamNG.drive'
 print(USERPATH)
@@ -22,11 +35,10 @@ bng.open(extensions=['util/gameEngineCode'])
 
 # Create a scenario in west_coast_usa called 'example'
 # scenario = Scenario('west_coast_usa', 'example')
-scenario = Scenario('gridmap_v2', 'Collect Mountain')
+scenario = Scenario(scenario_name, 'Collect Mountain')
 # scenario = Scenario('italy', 'Mountain')
 # Create an ETK800 with the licence plate 'PYTHON'
-# vehicle = Vehicle('ego_vehicle', model='etk800', license='PYTHON')
-vehicle = Vehicle('ego_vehicle', model='pickup', license='PYTHON', extensions=['vehicleEngineCode'])
+vehicle = Vehicle('ego_vehicle', model=model_name, license='PYTHON', extensions=['vehicleEngineCode'])
 # vehicle = Vehicle('ego_vehicle', model='autobello', license='PYTHON', extensions=['vehicleEngineCode'])
 # Add it to our scenario at this position and rotation
 # scenario.add_vehicle(vehicle, pos=(-717, 101, 118), rot_quat=(0, 0, 0.3826834, 0.9238795))
