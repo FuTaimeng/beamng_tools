@@ -41,17 +41,20 @@ def get_center_radius(pos):
     center = np.mean(pos, axis=0)
     low_z = np.min(pos[:, 2])
     radius = center[2] - low_z
-    return center.tolist(), radius
+    return center, radius
 
 res = {}
-res['FL_center'], res['FL_radius'] = get_center_radius(pos_wheels[front_left])
-res['FR_center'], res['FR_radius'] = get_center_radius(pos_wheels[front_right])
-res['RL_center'], res['RL_radius'] = get_center_radius(pos_wheels[rear_left])
-res['RR_center'], res['RR_radius'] = get_center_radius(pos_wheels[rear_right])
 
-for i in ['FL', 'FR', 'RL', 'RR']:
-    x, y, z = res[f'{i}_center']
-    r = res[f'{i}_radius']
+center_radius = (
+    get_center_radius(pos_wheels[front_left]),
+    get_center_radius(pos_wheels[front_right]),
+    get_center_radius(pos_wheels[rear_left]),
+    get_center_radius(pos_wheels[rear_right])
+)
+
+for i in range(4):
+    x, y, z = center_radius[i][0]
+    r = center_radius[i][1]
     ax.scatter(x, y, z, color='g', s=50)
     ax.plot([x, x], [y, y], [z, z-r], color='r')
 
@@ -77,14 +80,19 @@ def calc_inertia_mat(pos, mass, cog):
         I += I_pt
     return I
 
-res['FL_I'] = calc_inertia_mat(pos_wheels[front_left], mass_wheels[front_left], res['FL_center'])[0, 0]
-res['FR_I'] = calc_inertia_mat(pos_wheels[front_right], mass_wheels[front_right], res['FR_center'])[0, 0]
-res['RL_I'] = calc_inertia_mat(pos_wheels[rear_left], mass_wheels[rear_left], res['RL_center'])[0, 0]
-res['RR_I'] = calc_inertia_mat(pos_wheels[rear_right], mass_wheels[rear_right], res['RR_center'])[0, 0]
+res['FL_I'] = calc_inertia_mat(pos_wheels[front_left], mass_wheels[front_left], center_radius[0][0])[0, 0]
+res['FR_I'] = calc_inertia_mat(pos_wheels[front_right], mass_wheels[front_right], center_radius[1][0])[0, 0]
+res['RL_I'] = calc_inertia_mat(pos_wheels[rear_left], mass_wheels[rear_left], center_radius[2][0])[0, 0]
+res['RR_I'] = calc_inertia_mat(pos_wheels[rear_right], mass_wheels[rear_right], center_radius[3][0])[0, 0]
 res['I'] = calc_inertia_mat(pos, mass, cog).tolist()
 
 res['mass'] = mass.tolist()
 res['mass_pts'] = (pos - cog).tolist()
+
+res['FL_center'], res['FL_radius'] = (center_radius[0][0] - cog).tolist(), center_radius[0][1]
+res['FR_center'], res['FR_radius'] = (center_radius[1][0] - cog).tolist(), center_radius[1][1]
+res['RL_center'], res['RL_radius'] = (center_radius[2][0] - cog).tolist(), center_radius[2][1]
+res['RR_center'], res['RR_radius'] = (center_radius[3][0] - cog).tolist(), center_radius[3][1]
 
 with open(os.path.sep.join((path, 'nodes_turnleft.txt')), 'r') as f:
     nodes = eval(f.readline())

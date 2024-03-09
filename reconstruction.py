@@ -7,7 +7,7 @@ import pypose as pp
 import open3d as o3d
 import matplotlib.pyplot as plt
 
-suffix = '_plane'
+suffix = '_stop'
 dataroot = f'data{suffix}'
 poses = np.loadtxt(os.path.sep.join((dataroot, 'pose.txt')))
 
