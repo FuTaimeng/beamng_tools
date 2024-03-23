@@ -28,6 +28,9 @@ local function handleGetWheelSpeeds(request)
     local response = {}
     for name, wheel in pairs(wheelCache) do
         response[name] = wheel.wheelSpeed
+        for key, value in pairs(wheel) do
+            print(key, value) -- Print each wheel's name, property key, and value
+        end
     end
     request:sendResponse(response)
 end

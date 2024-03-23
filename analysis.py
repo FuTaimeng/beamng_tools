@@ -1,3 +1,4 @@
+import json
 import torch
 import numpy as np
 import pypose as pp
@@ -11,6 +12,10 @@ poses = np.loadtxt(f'{dataroot}/pose.txt')
 cam_poses = np.loadtxt(f'{dataroot}/cam_pose.txt')
 cogs = np.loadtxt(f'{dataroot}/cog.txt')
 wheel_speed = np.loadtxt(f'{dataroot}/wheel_speed.txt')
+
+vehroot = 'vehicle_pickup'
+with open(f'{vehroot}/vehicle_config.txt') as f:
+    config = json.load(f)
 
 def extrinsic_trans(st=0, end=10):
     pts = []
@@ -34,8 +39,18 @@ def check_velocity(st=1, end=10):
         print(v, v_calc)
         print(np.linalg.norm(v), ws)
 
+def check_vehicle():
+    mass = np.array(config['mass'])
+    mass_pts = np.array(config['mass_pts'])
+    M = np.sum(mass)
+    print('M', M)
+    cog_calc = np.sum(mass.reshape(-1, 1) * mass_pts, axis=0) / M
+    print('COG', cog_calc)
+
 # extrinsic_trans(0, 50)
 # extrinsic_trans(1350, 1355)
 # extrinsic_trans(0, 1355)
 
-check_velocity(100, 120)
+# check_velocity(100, 120)
+    
+check_vehicle()
