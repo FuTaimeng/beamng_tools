@@ -10,7 +10,7 @@ import pypose as pp
 import beamngpy
 from beamngpy import BeamNGpy, Scenario, Vehicle
 
-dataroot = 'data_straight'
+dataroot = 'data_leftturn2'
 os.makedirs(dataroot, exist_ok=True)
 
 scenario_name = 'gridmap_v2'

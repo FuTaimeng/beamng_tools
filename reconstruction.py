@@ -7,7 +7,7 @@ import pypose as pp
 import open3d as o3d
 import matplotlib.pyplot as plt
 
-suffix = '_straight'
+suffix = '_leftturn2'
 dataroot = f'data{suffix}'
 poses = np.loadtxt(os.path.sep.join((dataroot, 'pose.txt')))
 
@@ -45,7 +45,7 @@ z = torch.tensor(cam_param['dir'], dtype=torch.float32)
 z /= z.norm()
 y = -torch.tensor(cam_param['up'], dtype=torch.float32)
 y /= y.norm()
-x = torch.cross(y, z)
+x = torch.cross(y, z, dim=0)
 x /= x.norm()
 rot = torch.stack((x, y, z)).T
 q = pp.from_matrix(rot, ltype=pp.SO3_type)
