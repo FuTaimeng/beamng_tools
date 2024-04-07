@@ -5,16 +5,13 @@ import torch
 import numpy as np
 import pypose as pp
 import open3d as o3d
-import matplotlib.pyplot as plt
 
-suffix = '_leftturn2'
-dataroot = f'data{suffix}'
+dataroot = 'data_plane'
 poses = np.loadtxt(os.path.sep.join((dataroot, 'pose.txt')))
 
 grid_length = 0.2
 start_frame = 0
 end_frame = len(poses)
-# end_frame = 2000
 
 config = {
     'grid_length': grid_length,
@@ -32,12 +29,12 @@ fov_y = cam_param['fov_y'] /180*np.pi
 near_far_planes = cam_param['near_far_planes']
 f = resolution[1]/2 / np.tan(fov_y/2)
 cx, cy = resolution[0]/2, resolution[1]/2
-K = torch.tensor([
+K = np.array([
     f, 0, cx,
     0, f, cy,
     0,  0,  1
-], dtype=torch.float32).view(3,3)
-K_inv = torch.linalg.inv(K)
+], dtype=float).reshape(3,3)
+K_inv = np.linalg.inv(K)
 print('K_inv', K_inv)
 
 trans = torch.tensor(cam_param['trans'], dtype=torch.float32)
@@ -51,31 +48,76 @@ rot = torch.stack((x, y, z)).T
 q = pp.from_matrix(rot, ltype=pp.SO3_type)
 extrinsic = pp.SE3(torch.cat((trans, q.tensor())))
 
-fig = plt.figure()
-ax = fig.add_subplot(projection='3d')
 
-map = {}
+class MapBlock:
+    def __init__(self, start_pos, grid_length, block_size=1000):
+        self.grid_length = grid_length
+        self.block_size = block_size
+        self.start_pos = np.array(start_pos, dtype=float)
 
-def add_point(key, data):
-    if not key in map:
-        data.update({'cnt':1})
-        map[key] = data
-    else:
-        grid = map[key]
-        cnt = grid['cnt']
-        grid['cnt'] = cnt + 1
-        for k in data:
-            grid[k] = (grid[k]*cnt + data[k]) / (cnt+1)
+        block_length = grid_length * block_size
+        xy = np.linspace(self.start_pos+grid_length/2, self.start_pos+(block_length-grid_length/2), block_size)
+        X, Y = np.meshgrid(xy[:, 0], xy[:, 1], indexing='ij')
+        self.grid = np.stack([X, Y], axis=-1)
 
-def gather():
-    pts, colors = [], []
-    for key, grid in map.items():
-        x, y = (key[0]+0.5)*grid_length, (key[1]+0.5)*grid_length
-        z = grid['height']
-        pts.append([x, y, z])
-        colors.append(grid['rgb'])
-    return np.array(pts), np.stack(colors)
+        self.count = np.zeros((block_size, block_size), dtype=int)
+        self.height = np.zeros((block_size, block_size), dtype=float)
+        self.rgb = np.zeros((block_size, block_size, 3), dtype=float)
 
+    def xy2ij(self, xy):
+        return np.floor((xy - self.start_pos) / self.grid_length).astype(int)
+    
+    def add_points(self, points, colors):
+        ij = self.xy2ij(points[:, :2])
+        assert np.all(ij < self.block_size) and np.all(ij >= 0)
+
+        self.count[ij[:, 0], ij[:, 1]] += 1
+        self.height[ij[:, 0], ij[:, 1]] += points[:, 2]
+        self.rgb[ij[:, 0], ij[:, 1]] += colors
+
+    def get_data(self):
+        mask = self.count > 0
+        grid = self.grid[mask]
+        count = self.count[mask]
+        height = self.height[mask] / count
+        rgb = self.rgb[mask] / count[..., np.newaxis]
+        return grid, height, rgb
+
+class Map:
+    def __init__(self, grid_length, block_size=1000):
+        self.grid_length = grid_length
+        self.block_size = block_size
+        self.block_length = grid_length * block_size
+
+        self.blocks = {}
+
+    def xy2block(self, xy):
+        return np.floor(xy / self.block_length).astype(int)
+
+    def add_points(self, points, colors):
+        ij = self.xy2block(points[:, :2])
+        bID = np.unique(ij, axis=0)
+        bID = list(map(tuple, bID))
+        for b in bID:
+            if b not in self.blocks:
+                start_pos = (b[0]*self.block_length, b[1]*self.block_length)
+                self.blocks[b] = MapBlock(start_pos, self.grid_length, self.block_size)
+            mask = np.logical_and(ij[:, 0] == b[0], ij[:, 1] == b[1])
+            self.blocks[b].add_points(points[mask], colors[mask])
+            
+    def get_pointcloud(self):
+        points, colors = [], []
+        for block in self.blocks.values():
+            grid, height, rgb = block.get_data()
+            pts = np.concatenate((grid, height[..., np.newaxis]), axis=-1)
+            points.append(pts)
+            colors.append(rgb)
+        points = np.concatenate(points, axis=0)
+        colors = np.concatenate(colors, axis=0)
+        return points, colors
+
+
+terrian_map = Map(grid_length, 1000)
 
 for idx in range(start_frame, end_frame):
     print('\rprocessing {}/{} ...'.format(idx, end_frame), end='')
@@ -85,49 +127,35 @@ for idx in range(start_frame, end_frame):
     seg = cv2.imread(os.path.sep.join((dataroot, 'seg', '{:0>6}.png'.format(idx))), cv2.IMREAD_COLOR)
     depth = np.load(os.path.sep.join((dataroot, 'depth', '{:0>6}.npy'.format(idx))))
 
-    rgb = torch.tensor(rgb, dtype=torch.float32) / 255
-    seg = torch.tensor(seg, dtype=torch.float32) / 255
-    depth = torch.tensor(depth, dtype=torch.float32)
+    rgb = rgb.astype(float) / 255
+    seg = seg.astype(float) / 255
+    depth = depth.astype(float)
 
-    mask = torch.zeros(resolution[0]*resolution[1], dtype=bool)
+    mask = np.zeros(resolution[0]*resolution[1], dtype=bool)
     mask[::10] = True
-    mask = torch.logical_and(mask, depth.view(-1) < near_far_planes[1]/10)
+    mask = np.logical_and(mask, depth.reshape(-1) < near_far_planes[1]/10)
 
-    u_lin = torch.linspace(0, resolution[0]-1, resolution[0])
-    v_lin = torch.linspace(0, resolution[1]-1, resolution[1])
-    u, v = torch.meshgrid(u_lin, v_lin, indexing='xy')
-    uv1 = torch.stack([u, v, torch.ones_like(u)]).permute(1,2,0)
+    u_lin = np.linspace(0, resolution[0]-1, resolution[0])
+    v_lin = np.linspace(0, resolution[1]-1, resolution[1])
+    u, v = np.meshgrid(u_lin, v_lin, indexing='xy')
+    uv1 = np.transpose(np.stack([u, v, np.ones_like(u)]), axes=(1,2,0))
 
-    uv1 = uv1.view(-1,3,1)[mask, :, :]
-    depth = depth.view(-1,1)[mask, :]
-    rgb = rgb.view(-1,3)[mask, :]
-    seg = seg.view(-1,3)[mask, :]
+    uv1 = uv1.reshape(-1,3,1)[mask, :, :]
+    depth = depth.reshape(-1,1)[mask, :]
+    rgb = rgb.reshape(-1,3)[mask, :]
+    seg = seg.reshape(-1,3)[mask, :]
 
-    pts = (K_inv.view(1,3,3) @ uv1).squeeze(-1)
-    pts *= depth
-    # pts = pts / torch.linalg.norm(pts, dim=1).view(-1,1) * depth
-    pts = pose @ extrinsic @ pts
+    pts = (K_inv.reshape(1,3,3) @ uv1).squeeze(-1) * depth
+    pts_tensor = torch.tensor(pts, dtype=torch.float32)
+    pts = (pose @ extrinsic @ pts_tensor).numpy()
 
-    # pts_np = pts.numpy()
-    # colors = rgb.numpy()
-    # ax.scatter(pts_np[:, 0], pts_np[:, 1], pts_np[:, 2], c=colors)
+    terrian_map.add_points(pts, rgb)
 
-    for i, pt in enumerate(pts):
-        x, y = int(pt[0]//grid_length), int(pt[1]//grid_length)
-        add_point((x, y), {'height':float(pt[2]), 'rgb':rgb[i].numpy(), 'seg':seg[i].numpy()})
-
-pts_np, colors = gather()
-print('num grids', len(pts_np))
-np.save(os.path.sep.join((dataroot, 'cloud.npy')), pts_np)
+points, colors = terrian_map.get_pointcloud()
+points_colors = np.concatenate((points, colors), axis=-1)
+np.save(os.path.sep.join((dataroot, 'cloud.npy')), points_colors)
 
 pcd = o3d.geometry.PointCloud()
-pcd.points = o3d.utility.Vector3dVector(pts_np)
+pcd.points = o3d.utility.Vector3dVector(points)
 pcd.colors = o3d.utility.Vector3dVector(colors)
 o3d.io.write_point_cloud(os.path.sep.join((dataroot, 'cloud.ply')), pcd, write_ascii=False)
-
-ax.scatter(pts_np[:, 0], pts_np[:, 1], pts_np[:, 2], c=colors)
-ax.axis('equal')
-ax.set_xlabel('x')
-ax.set_ylabel('y')
-ax.set_zlabel('z')
-plt.show()
