@@ -4,18 +4,18 @@ import numpy as np
 import pypose as pp
 import matplotlib.pyplot as plt
 
-fig = plt.figure()
-ax = fig.add_subplot(projection='3d')
+# fig = plt.figure()
+# ax = fig.add_subplot(projection='3d')
 
-dataroot = 'data_plane'
-poses = np.loadtxt(f'{dataroot}/pose.txt')
-cam_poses = np.loadtxt(f'{dataroot}/cam_pose.txt')
-cogs = np.loadtxt(f'{dataroot}/cog.txt')
-wheel_speed = np.loadtxt(f'{dataroot}/wheel_speed.txt')
+# dataroot = 'data_plane'
+# poses = np.loadtxt(f'{dataroot}/pose.txt')
+# cam_poses = np.loadtxt(f'{dataroot}/cam_pose.txt')
+# cogs = np.loadtxt(f'{dataroot}/cog.txt')
+# wheel_speed = np.loadtxt(f'{dataroot}/wheel_speed.txt')
 
-vehroot = 'vehicle_pickup'
-with open(f'{vehroot}/vehicle_config.txt') as f:
-    config = json.load(f)
+# vehroot = 'vehicle_pickup'
+# with open(f'{vehroot}/vehicle_config.txt') as f:
+#     config = json.load(f)
 
 def extrinsic_trans(st=0, end=10):
     pts = []
@@ -53,4 +53,45 @@ def check_vehicle():
 
 # check_velocity(100, 120)
     
-check_vehicle()
+# check_vehicle()
+
+
+import cv2
+# img = cv2.imread('data_straight/map/color/000000.png')
+img = cv2.imread('test.png')
+# cv2.imshow('img', img)
+plt.imshow(img)
+
+dir = np.array([0.5, -1], dtype=float)
+dir /= np.linalg.norm(dir)
+print(dir)
+rot = -(1 if -dir[1]>=0 else -1) * np.arccos(-dir[0])
+print(np.rad2deg(rot))
+mat = np.array([[np.cos(rot), -np.sin(rot)], [np.sin(rot), np.cos(rot)]])
+
+center = np.array([1400, 700])
+size = 400
+
+dir = np.array([dir[1], dir[0]])
+tan = np.array([-dir[1], dir[0]])
+plt.scatter([center[0]], [center[1]])
+plt.plot([center[0], center[0]+dir[0]*size/2], [center[1], center[1]+dir[1]*size/2])
+plt.plot([center[0]+(dir[0]+tan[0])*size/2, center[0]+(dir[0]-tan[0])*size/2, center[0]+(-dir[0]-tan[0])*size/2, center[0]+(-dir[0]+tan[0])*size/2, center[0]+(dir[0]+tan[0])*size/2], 
+         [center[1]+(dir[1]+tan[1])*size/2, center[1]+(dir[1]-tan[1])*size/2, center[1]+(-dir[1]-tan[1])*size/2, center[1]+(-dir[1]+tan[1])*size/2, center[1]+(dir[1]+tan[1])*size/2])
+
+u = np.linspace(-size/2, size/2, size)
+v = np.linspace(-size/2, size/2, size)
+x, y = np.meshgrid(u, v, indexing='xy')
+# x = x.astype(np.float32)
+# y = y.astype(np.float32)
+xy = np.stack([x, y], axis=-1)
+xy = (mat @ xy[..., np.newaxis]).squeeze(-1)
+xy += center
+xy = xy.astype(np.float32)
+print(xy.shape)
+
+crop = cv2.remap(img, xy, None, interpolation=cv2.INTER_LINEAR)
+cv2.imshow('crop', crop)
+
+plt.show()
+cv2.waitKey(0)

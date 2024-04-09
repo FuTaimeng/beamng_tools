@@ -9,7 +9,7 @@ import open3d as o3d
 dataroot = 'data_straight'
 poses = np.loadtxt(os.path.sep.join((dataroot, 'pose.txt')))
 
-grid_length = 0.1
+grid_length = 0.02
 start_frame = 0
 end_frame = len(poses)
 
@@ -92,9 +92,13 @@ class MapBlock:
         height = self.height[mask] / count
         min_h, max_h = np.min(height), np.max(height)
         height_img = np.zeros(self.height.shape, dtype=np.uint8)
-        height_img[mask] = (height - min_h) / (max_h - min_h) * 254 + 1
+        height_img[mask] = np.round((height - min_h) / (max_h - min_h) * 254 + 1)
         rgb_img = np.zeros(self.rgb.shape, dtype=np.uint8)
-        rgb_img[mask] = self.rgb[mask] / count[..., np.newaxis] * 255
+        rgb_img[mask] = np.round(self.rgb[mask] / count[..., np.newaxis] * 255)
+        blur = cv2.GaussianBlur(height_img, (3,3), 0)
+        inpaint_mask = np.logical_and(height_img == 0, blur != 0).astype(np.uint8)
+        height_img = cv2.inpaint(height_img, inpaint_mask, 3, cv2.INPAINT_TELEA)
+        rgb_img = cv2.inpaint(rgb_img, inpaint_mask, 2, cv2.INPAINT_TELEA)
         return height_img, rgb_img, (min_h, max_h)
 
 class Map:
