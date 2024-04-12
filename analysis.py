@@ -62,36 +62,66 @@ img = cv2.imread('test.png')
 # cv2.imshow('img', img)
 plt.imshow(img)
 
-dir = np.array([0.5, -1], dtype=float)
-dir /= np.linalg.norm(dir)
-print(dir)
-rot = -(1 if -dir[1]>=0 else -1) * np.arccos(-dir[0])
-print(np.rad2deg(rot))
-mat = np.array([[np.cos(rot), -np.sin(rot)], [np.sin(rot), np.cos(rot)]])
+# dir = np.array([-1, -1], dtype=float)
+# dir /= np.linalg.norm(dir)
+# print(dir)
+# # rot = -(1 if -dir[1]>=0 else -1) * np.arccos(-dir[0])
+# rot = (1 if dir[1]>=0 else -1) * np.arccos(np.dot(dir, np.array([-1, 0], dtype=float)))
+# print(np.rad2deg(rot))
+# mat = np.array([[np.cos(rot), -np.sin(rot)], [np.sin(rot), np.cos(rot)]])
 
-center = np.array([1400, 700])
-size = 400
+# center = np.array([1400, 700])
+# size = 400
 
-dir = np.array([dir[1], dir[0]])
-tan = np.array([-dir[1], dir[0]])
-plt.scatter([center[0]], [center[1]])
-plt.plot([center[0], center[0]+dir[0]*size/2], [center[1], center[1]+dir[1]*size/2])
-plt.plot([center[0]+(dir[0]+tan[0])*size/2, center[0]+(dir[0]-tan[0])*size/2, center[0]+(-dir[0]-tan[0])*size/2, center[0]+(-dir[0]+tan[0])*size/2, center[0]+(dir[0]+tan[0])*size/2], 
-         [center[1]+(dir[1]+tan[1])*size/2, center[1]+(dir[1]-tan[1])*size/2, center[1]+(-dir[1]-tan[1])*size/2, center[1]+(-dir[1]+tan[1])*size/2, center[1]+(dir[1]+tan[1])*size/2])
+# dir = np.array([dir[1], dir[0]])
+# tan = np.array([-dir[1], dir[0]])
+# plt.scatter([center[0]], [center[1]])
+# plt.plot([center[0], center[0]+dir[0]*size/2], [center[1], center[1]+dir[1]*size/2])
+# plt.plot([center[0]+(dir[0]+tan[0])*size/2, center[0]+(dir[0]-tan[0])*size/2, center[0]+(-dir[0]-tan[0])*size/2, center[0]+(-dir[0]+tan[0])*size/2, center[0]+(dir[0]+tan[0])*size/2], 
+#          [center[1]+(dir[1]+tan[1])*size/2, center[1]+(dir[1]-tan[1])*size/2, center[1]+(-dir[1]-tan[1])*size/2, center[1]+(-dir[1]+tan[1])*size/2, center[1]+(dir[1]+tan[1])*size/2])
 
-u = np.linspace(-size/2, size/2, size)
-v = np.linspace(-size/2, size/2, size)
-x, y = np.meshgrid(u, v, indexing='xy')
-# x = x.astype(np.float32)
-# y = y.astype(np.float32)
-xy = np.stack([x, y], axis=-1)
-xy = (mat @ xy[..., np.newaxis]).squeeze(-1)
-xy += center
-xy = xy.astype(np.float32)
-print(xy.shape)
+# u = np.linspace(-size/2, size/2, size)
+# v = np.linspace(-size/2, size/2, size)
+# x, y = np.meshgrid(u, v, indexing='xy')
+# # x = x.astype(np.float32)
+# # y = y.astype(np.float32)
+# xy = np.stack([x, y], axis=-1)
+# xy = (mat @ xy[..., np.newaxis]).squeeze(-1)
+# xy += center
+# xy = xy.astype(np.float32)
+# print(xy.shape)
 
-crop = cv2.remap(img, xy, None, interpolation=cv2.INTER_LINEAR)
-cv2.imshow('crop', crop)
+# crop = cv2.remap(img, xy, None, interpolation=cv2.INTER_LINEAR)
+# cv2.imshow('crop', crop)
 
-plt.show()
-cv2.waitKey(0)
+# gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+# # dx = cv2.Sobel(src=gray, ddepth=cv2.CV_64F, dx=1, dy=0, ksize=5)
+# # dy = cv2.Sobel(src=gray, ddepth=cv2.CV_64F, dx=0, dy=1, ksize=5)
+# dx = cv2.Scharr(gray, cv2.CV_32F, 1, 0)
+# dx = cv2.Scharr(gray, cv2.CV_32F, 0, 1)
+# cv2.imshow('sobel', dx)
+# print(gray.shape, dx.shape, dx.dtype)
+
+idx = np.array(1, dtype=np.float32)
+x = cv2.remap(img, idx, idx, cv2.INTER_LINEAR)
+print(idx.shape, x.shape)
+
+idx = np.array([1], dtype=np.float32)
+x = cv2.remap(img, idx, idx, cv2.INTER_LINEAR)
+print(idx.shape, x.shape)
+
+idx = np.array([1, 2], dtype=np.float32)
+x = cv2.remap(img, idx, idx, cv2.INTER_LINEAR)
+print(idx.shape, x.shape)
+
+
+idx = np.array([[1, 2]], dtype=np.float32)
+x = cv2.remap(img, idx, idx, cv2.INTER_LINEAR)
+print(idx.shape, x.shape)
+
+idx = np.array([[1, 2], [1, 2]], dtype=np.float32)
+x = cv2.remap(img, idx, idx, cv2.INTER_LINEAR)
+print(idx.shape, x.shape)
+
+# plt.show()
+# cv2.waitKey(0)

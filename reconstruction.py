@@ -6,10 +6,15 @@ import numpy as np
 import pypose as pp
 import open3d as o3d
 
-dataroot = 'data_straight'
+dataroot = 'data_plane'
 poses = np.loadtxt(os.path.sep.join((dataroot, 'pose.txt')))
 
-grid_length = 0.02
+old_mode = True
+if not old_mode:
+    grid_length = 0.02
+else:
+    grid_length = 0.2
+block_size = 1000
 start_frame = 0
 end_frame = len(poses)
 
@@ -144,7 +149,7 @@ class Map:
         return heights, colors, infos
 
 
-terrian_map = Map(grid_length, 1000)
+terrian_map = Map(grid_length, block_size)
 
 for idx in range(start_frame, end_frame):
     print('\rprocessing {}/{} ...'.format(idx, end_frame), end='')
@@ -179,23 +184,25 @@ for idx in range(start_frame, end_frame):
 
     terrian_map.add_points(pts, rgb)
 
-heights, colors, infos = terrian_map.get_images()
-if os.path.isdir(os.path.sep.join((dataroot, 'map'))):
-    os.system('rm -r '+os.path.sep.join((dataroot, 'map')))
-os.makedirs(os.path.sep.join((dataroot, 'map', 'height')))
-os.makedirs(os.path.sep.join((dataroot, 'map', 'color')))
-infos['summary'] = {'num_block':len(heights)}
-with open(os.path.sep.join((dataroot, 'map', 'info.txt')), 'w') as f:
-    json.dump(infos, f)
-for i in range(len(heights)):
-    cv2.imwrite(os.path.sep.join((dataroot, 'map', 'height', f'{i:0>6d}.png')), heights[i])
-    cv2.imwrite(os.path.sep.join((dataroot, 'map', 'color', f'{i:0>6d}.png')), colors[i])
+if not old_mode:
+    heights, colors, infos = terrian_map.get_images()
+    if os.path.isdir(os.path.sep.join((dataroot, 'map'))):
+        os.system('rm -r '+os.path.sep.join((dataroot, 'map')))
+    os.makedirs(os.path.sep.join((dataroot, 'map', 'height')), exist_ok=True)
+    os.makedirs(os.path.sep.join((dataroot, 'map', 'color')), exist_ok=True)
+    infos.update({'num_block':len(heights), 'grid_length':grid_length, 'block_size':block_size})
+    with open(os.path.sep.join((dataroot, 'map', 'info.txt')), 'w') as f:
+        json.dump(infos, f)
+    for i in range(len(heights)):
+        cv2.imwrite(os.path.sep.join((dataroot, 'map', 'height', f'{i:0>6d}.png')), heights[i])
+        cv2.imwrite(os.path.sep.join((dataroot, 'map', 'color', f'{i:0>6d}.png')), colors[i])
 
-# points, colors = terrian_map.get_pointcloud()
-# points_colors = np.concatenate((points, colors), axis=-1)
-# np.save(os.path.sep.join((dataroot, 'map', 'cloud.npy')), points_colors)
+else:
+    points, colors = terrian_map.get_pointcloud()
+    points_colors = np.concatenate((points, colors), axis=-1)
+    np.save(os.path.sep.join((dataroot, 'cloud.npy')), points_colors)
 
-# pcd = o3d.geometry.PointCloud()
-# pcd.points = o3d.utility.Vector3dVector(points)
-# pcd.colors = o3d.utility.Vector3dVector(colors)
-# o3d.io.write_point_cloud(os.path.sep.join((dataroot, 'map', 'cloud.ply')), pcd, write_ascii=False)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    pcd.colors = o3d.utility.Vector3dVector(colors)
+    o3d.io.write_point_cloud(os.path.sep.join((dataroot, 'cloud.ply')), pcd, write_ascii=False)
