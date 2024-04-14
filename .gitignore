@@ -1,5 +1,8 @@
 0.30/
-data_*/
+data*/
+
+.vscode/
+__pycache__/
 
 *.txt
 *.ply

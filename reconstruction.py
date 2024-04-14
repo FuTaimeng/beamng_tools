@@ -1,15 +1,20 @@
 import os
+import sys
 import cv2
+import time
 import json
 import torch
 import numpy as np
 import pypose as pp
 import open3d as o3d
 
-dataroot = 'data_plane'
+if len(sys.argv) >= 2:
+    dataroot = sys.argv[1]
+else:
+    dataroot = 'data/ai-span_derby_grass-asphalt-arena_pickup_24-04-13-20-48-26'
 poses = np.loadtxt(os.path.sep.join((dataroot, 'pose.txt')))
 
-old_mode = True
+old_mode = False
 if not old_mode:
     grid_length = 0.02
 else:
@@ -96,14 +101,23 @@ class MapBlock:
         count = self.count[mask]
         height = self.height[mask] / count
         min_h, max_h = np.min(height), np.max(height)
+        if max_h - min_h < 0.1:
+            min_h = max_h - 0.1
         height_img = np.zeros(self.height.shape, dtype=np.uint8)
         height_img[mask] = np.round((height - min_h) / (max_h - min_h) * 254 + 1)
         rgb_img = np.zeros(self.rgb.shape, dtype=np.uint8)
         rgb_img[mask] = np.round(self.rgb[mask] / count[..., np.newaxis] * 255)
-        blur = cv2.GaussianBlur(height_img, (3,3), 0)
-        inpaint_mask = np.logical_and(height_img == 0, blur != 0).astype(np.uint8)
-        height_img = cv2.inpaint(height_img, inpaint_mask, 3, cv2.INPAINT_TELEA)
-        rgb_img = cv2.inpaint(rgb_img, inpaint_mask, 2, cv2.INPAINT_TELEA)
+        kernel = np.array([[1,2,1],[2,0,2],[1,2,1]], dtype=np.float32)
+        kernel /= np.sum(kernel)
+        for i in range(5):
+            height_blur = cv2.filter2D(height_img, -1, kernel)
+            rgb_blur = cv2.filter2D(rgb_img, -1, kernel)
+            height_img[~mask] = height_blur[~mask]
+            rgb_img[~mask] = rgb_blur[~mask]
+        # blur = cv2.GaussianBlur(height_img, (7,7), 0)
+        # inpaint_mask = np.logical_and(height_img == 0, blur != 0).astype(np.uint8)
+        # height_img = cv2.inpaint(height_img, inpaint_mask, 5, cv2.INPAINT_TELEA)
+        # rgb_img = cv2.inpaint(rgb_img, inpaint_mask, 5, cv2.INPAINT_TELEA)
         return height_img, rgb_img, (min_h, max_h)
 
 class Map:
@@ -178,14 +192,24 @@ for idx in range(start_frame, end_frame):
     rgb = rgb.reshape(-1,3)[mask, :]
     seg = seg.reshape(-1,3)[mask, :]
 
-    pts = (K_inv.reshape(1,3,3) @ uv1).squeeze(-1) * depth
-    pts_tensor = torch.tensor(pts, dtype=torch.float32)
-    pts = (pose @ extrinsic @ pts_tensor).numpy()
+    pts_cam = (K_inv.reshape(1,3,3) @ uv1).squeeze(-1) * depth
+    pts_cam = torch.tensor(pts_cam, dtype=torch.float32)
 
-    terrian_map.add_points(pts, rgb)
+    pts_veh = extrinsic @ pts_cam
+
+    height_mask = pts_veh[:, 2] < 1.0
+    pts_veh = pts_veh[height_mask]
+    rgb = rgb[height_mask]
+
+    pts_world = (pose @ pts_veh).numpy()
+
+    terrian_map.add_points(pts_world, rgb)
 
 if not old_mode:
+    t0 = time.time()
     heights, colors, infos = terrian_map.get_images()
+    t1 = time.time()
+    print('get_images time:', t1-t0)
     if os.path.isdir(os.path.sep.join((dataroot, 'map'))):
         os.system('rm -r '+os.path.sep.join((dataroot, 'map')))
     os.makedirs(os.path.sep.join((dataroot, 'map', 'height')), exist_ok=True)
@@ -197,12 +221,12 @@ if not old_mode:
         cv2.imwrite(os.path.sep.join((dataroot, 'map', 'height', f'{i:0>6d}.png')), heights[i])
         cv2.imwrite(os.path.sep.join((dataroot, 'map', 'color', f'{i:0>6d}.png')), colors[i])
 
-else:
     points, colors = terrian_map.get_pointcloud()
+    points, colors = points[::100], colors[::100]
     points_colors = np.concatenate((points, colors), axis=-1)
-    np.save(os.path.sep.join((dataroot, 'cloud.npy')), points_colors)
+    # np.save(os.path.sep.join((dataroot, 'cloud.npy')), points_colors)
 
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
     pcd.colors = o3d.utility.Vector3dVector(colors)
-    o3d.io.write_point_cloud(os.path.sep.join((dataroot, 'cloud.ply')), pcd, write_ascii=False)
+    o3d.io.write_point_cloud(os.path.sep.join((dataroot, 'map', 'cloud.ply')), pcd, write_ascii=False)

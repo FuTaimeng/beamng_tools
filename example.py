@@ -23,6 +23,12 @@ scenario.make(bng)
 bng.scenario.load(scenario)
 bng.scenario.start()
 
+electrics = beamngpy.sensors.Electrics()
+vehicle.attach_sensor('electrics', electrics)
+
+damage = beamngpy.sensors.Damage()
+vehicle.attach_sensor('damage', damage)
+
 cam = beamngpy.sensors.Camera(
     'cam', bng, vehicle,
     pos=(0,-2,2), dir=(0,-1,-1), up=(0,-1,1),
