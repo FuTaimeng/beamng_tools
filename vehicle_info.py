@@ -24,6 +24,15 @@ bng.open()
 # with open('levels_scenarios.txt', 'w') as f:
 #     f.write(str(levels_scenarios))
 
+# Get the annotation information
+capi = beamngpy.api.beamng.CameraApi(bng)
+info = capi.get_annotations()
+print('annotation info', info)
+with open('annotation_info.txt', 'w') as f:
+    f.write(str(info))
+
+quit()
+
 model = 'pickup'
 os.makedirs('vehicle_'+model, exist_ok=True)
 

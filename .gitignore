@@ -4,7 +4,6 @@ data*/
 .vscode/
 __pycache__/
 
-*.txt
 *.ply
 
 test.png
