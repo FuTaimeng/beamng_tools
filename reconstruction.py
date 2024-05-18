@@ -8,11 +8,17 @@ import numpy as np
 import pypose as pp
 import open3d as o3d
 
+map_folder = 'map2'
+
 if len(sys.argv) >= 2:
     dataroot = sys.argv[1]
 else:
     dataroot = 'data/ai-span_derby_grass-asphalt-arena_pickup_24-04-13-20-48-26'
 poses = np.loadtxt(os.path.sep.join((dataroot, 'pose.txt')))
+
+depth_bit = 16
+depth_type_max = 2**depth_bit - 1
+depth_type = np.uint8 if depth_bit==8 else np.uint16
 
 old_mode = False
 if not old_mode:
@@ -25,6 +31,8 @@ end_frame = len(poses)
 
 config = {
     'grid_length': grid_length,
+    'block_size': block_size,
+    'depth_bit': depth_bit,
     'start_frame': start_frame,
     'end_frame': end_frame
 }
@@ -103,8 +111,8 @@ class MapBlock:
         min_h, max_h = np.min(height), np.max(height)
         if max_h - min_h < 0.1:
             min_h = max_h - 0.1
-        height_img = np.zeros(self.height.shape, dtype=np.uint8)
-        height_img[mask] = np.round((height - min_h) / (max_h - min_h) * 254 + 1)
+        height_img = np.zeros(self.height.shape, dtype=depth_type)
+        height_img[mask] = np.round((height - min_h) / (max_h - min_h) * (depth_type_max-1) + 1)
         rgb_img = np.zeros(self.rgb.shape, dtype=np.uint8)
         rgb_img[mask] = np.round(self.rgb[mask] / count[..., np.newaxis] * 255)
         kernel = np.array([[1,2,1],[2,0,2],[1,2,1]], dtype=np.float32)
@@ -210,16 +218,19 @@ if not old_mode:
     heights, colors, infos = terrian_map.get_images()
     t1 = time.time()
     print('get_images time:', t1-t0)
-    if os.path.isdir(os.path.sep.join((dataroot, 'map'))):
-        os.system('rm -r '+os.path.sep.join((dataroot, 'map')))
-    os.makedirs(os.path.sep.join((dataroot, 'map', 'height')), exist_ok=True)
-    os.makedirs(os.path.sep.join((dataroot, 'map', 'color')), exist_ok=True)
+
+    if os.path.isdir(os.path.sep.join((dataroot, map_folder))):
+        os.system('rm -r '+os.path.sep.join((dataroot, map_folder)))
+    os.makedirs(os.path.sep.join((dataroot, map_folder, 'height')), exist_ok=True)
+    os.makedirs(os.path.sep.join((dataroot, map_folder, 'color')), exist_ok=True)
+
     infos.update({'num_block':len(heights), 'grid_length':grid_length, 'block_size':block_size})
-    with open(os.path.sep.join((dataroot, 'map', 'info.txt')), 'w') as f:
+    with open(os.path.sep.join((dataroot, map_folder, 'info.txt')), 'w') as f:
         json.dump(infos, f)
+
     for i in range(len(heights)):
-        cv2.imwrite(os.path.sep.join((dataroot, 'map', 'height', f'{i:0>6d}.png')), heights[i])
-        cv2.imwrite(os.path.sep.join((dataroot, 'map', 'color', f'{i:0>6d}.png')), colors[i])
+        cv2.imwrite(os.path.sep.join((dataroot, map_folder, 'height', f'{i:0>6d}.png')), heights[i])
+        cv2.imwrite(os.path.sep.join((dataroot, map_folder, 'color', f'{i:0>6d}.png')), colors[i])
 
     points, colors = terrian_map.get_pointcloud()
     points, colors = points[::100], colors[::100]
@@ -229,4 +240,4 @@ if not old_mode:
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
     pcd.colors = o3d.utility.Vector3dVector(colors)
-    o3d.io.write_point_cloud(os.path.sep.join((dataroot, 'map', 'cloud.ply')), pcd, write_ascii=False)
+    o3d.io.write_point_cloud(os.path.sep.join((dataroot, map_folder, 'cloud.ply')), pcd, write_ascii=False)
