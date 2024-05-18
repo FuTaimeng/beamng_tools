@@ -12,6 +12,9 @@ spawn_points = {
         {'scenario_name': 'italy', 'point_name': 'runway', 'position':[-1887.996, 1585.789, 152.726], 'euler':[0.000, 0.000, -102.469]},
         {'scenario_name': 'italy', 'point_name': 'portino', 'position':[-690.405, -1338.642, -1338.642], 'euler':[0.000, 0.000, 85.020]},
         {'scenario_name': 'italy', 'point_name': 'fastello', 'position':[1114.922, -689.114, 146.326], 'euler':[0.000, 0.000, -1.293]},
+
+        {'scenario_name': 'italy', 'point_name': 'mountaintop', 'position':[-1253.757, -1106.830, 589.834], 'euler':[0.000, 0.000, -128.401]},
+        {'scenario_name': 'italy', 'point_name': 'hillclimb', 'position':[-332.688, -1741.786, 156.804], 'euler':[0.000, 0.000, -123.235]},
     ],
     'small_island': [
         {'scenario_name': 'small_island', 'point_name': 'north-road', 'position':[254.773, 233.819, 39.672], 'euler':[0.000, 0.000, 0.000]},
@@ -40,5 +43,25 @@ spawn_points = {
         {'scenario_name': 'derby', 'point_name': 'grass-asphalt-arena', 'position':[-87.233, 21.092, 79.392], 'euler':[0.000, 0.000, 0.000]},
         {'scenario_name': 'derby', 'point_name': 'concrete-arena', 'position':[50.657, 145.191, 79.367], 'euler':[0.000, 0.000, 58.641]},
         {'scenario_name': 'derby', 'point_name': 'the-big-8', 'position':[-173.528, 107.966, 89.408], 'euler':[0.000, 0.000, -1.389]},
+    ],
+    'Utah': [
+        {'scenario_name': 'Utah', 'point_name': 'west-highway', 'position':[-922.156, -929.877, 135.563], 'euler':[0.000, 0.000, -110.203]},
+        {'scenario_name': 'Utah', 'point_name': 'building-site', 'position':[-910.374, 607.924, 265.225], 'euler':[0.000, 0.000, -131.950]},
+        {'scenario_name': 'Utah', 'point_name': 'tourist-area', 'position':[-528.441, 283.886, 298.787], 'euler':[0.000, 0.000, 101.688]},
+        {'scenario_name': 'Utah', 'point_name': 'parking-lot', 'position':[907.940, 773.502, 236.354], 'euler':[0.000, 0.000, -81.460]},
+        {'scenario_name': 'Utah', 'point_name': 'auto-repair-zone', 'position':[771.264, -149.268, 144.609], 'euler':[0.000, 0.000, -100.078]},
+        {'scenario_name': 'Utah', 'point_name': 'campsite', 'position':[566.245, -530.875, 135.565], 'euler':[0.000, 0.000, 31.356]},
+        {'scenario_name': 'Utah', 'point_name': 'airfield', 'position':[-327.176, -548.834, 129.968], 'euler':[0.000, 0.000, 10.000]},
+    ],
+    'driver_training': [
+        {'scenario_name': 'driver_training', 'point_name': 'north', 'position':[-206.930, 311.098, 53.190], 'euler':[0.000, 0.000, 1.045]},
+        {'scenario_name': 'driver_training', 'point_name': 'west', 'position':[-394.541, 69.048, 51.319], 'euler':[0.000, 0.000, -37.039]},
+        {'scenario_name': 'driver_training', 'point_name': 'center', 'position':[220.804, 124.788, 37.931], 'euler':[0.000, 0.000, 1.045]},
+    ],
+    'Cliff': [
+        {'scenario_name': 'Cliff', 'point_name': 'beach', 'position':[-578.805, 8.607, 40.469], 'euler':[0.000, 0.000, 0.000]},
+    ],
+    'automation_test_track': [
+        {'scenario_name': 'automation_test_track', 'point_name': 'rally-track', 'position':[-374.856, 84.818, 115.315], 'euler':[0.000, 0.000, 91.849]},
     ],
 }

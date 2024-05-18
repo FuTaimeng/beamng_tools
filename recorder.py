@@ -13,8 +13,8 @@ from beamngpy import BeamNGpy, Scenario, Vehicle
 
 from spawn_points import spawn_points
 
-mode = ['manual', 'ai-span'][1]
-spawn_pt = spawn_points['derby'][1]
+mode = ['manual', 'ai-span'][0]
+spawn_pt = spawn_points['automation_test_track'][0]
 
 scenario_name = spawn_pt['scenario_name']
 level_name = spawn_pt['point_name']
@@ -49,7 +49,9 @@ scenario = Scenario(scenario_name, level_name)
 vehicle = Vehicle('vehicle0', model=model_name, license='TYMON', extensions=['vehicleEngineCode'])
 # Add it to our scenario at this position and rotation
 position = spawn_pt['position']
-rotation = pp.euler2SO3(spawn_pt['euler']).tolist()
+euler = np.deg2rad(np.array(spawn_pt['euler']))
+# euler = spawn_pt['euler']
+rotation = pp.euler2SO3(euler).tolist()
 scenario.add_vehicle(vehicle, pos=position, rot_quat=rotation)
 # Place files defining our scenario for the simulator to read
 scenario.make(bng)
@@ -224,7 +226,7 @@ wheel_speeds = np.array(wheel_speeds)
 timestamps = np.array(timestamps)
 np.savetxt(os.path.sep.join((dataroot, 'pose.txt')), poses)
 np.savetxt(os.path.sep.join((dataroot, 'control.txt')), controls)
-np.savetxt(os.path.sep.join((dataroot, 'gears.txt')), gears)
+np.savetxt(os.path.sep.join((dataroot, 'gear.txt')), gears)
 np.savetxt(os.path.sep.join((dataroot, 'wheel_speed.txt')), wheel_speeds)
 np.savetxt(os.path.sep.join((dataroot, 'timestamp.txt')), timestamps)
 
