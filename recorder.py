@@ -14,7 +14,7 @@ from beamngpy import BeamNGpy, Scenario, Vehicle
 from spawn_points import spawn_points
 
 mode = ['manual', 'ai-span'][0]
-spawn_pt = spawn_points['automation_test_track'][0]
+spawn_pt = spawn_points['derby'][2]
 
 scenario_name = spawn_pt['scenario_name']
 level_name = spawn_pt['point_name']
@@ -22,7 +22,8 @@ model_name = 'pickup'
 record_time = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
 
 scenario_name_display = scenario_name.replace('_', '-')
-dataroot = f'data/{mode}_{scenario_name_display}_{level_name}_{model_name}_{record_time}'
+# dataroot = f'data/{mode}_{scenario_name_display}_{level_name}_{model_name}_{record_time}'
+dataroot = 'data_test'
 os.makedirs(dataroot, exist_ok=True)
 
 record_param = {
@@ -193,7 +194,7 @@ while True:
     np.save(os.path.sep.join((dataroot, 'depth', '{:0>6}.npy'.format(idx))), depth)
 
     cv2.imshow('rgb', rgb)
-    # cv2.imshow('seg', seg)
+    cv2.imshow('seg', seg)
     # cv2.imshow('dep', dep)
     key = cv2.waitKey(1)
     if key == ord('q'):
