@@ -24,16 +24,16 @@ bng.open()
 # with open('levels_scenarios.txt', 'w') as f:
 #     f.write(str(levels_scenarios))
 
-# Get the annotation information
-capi = beamngpy.api.beamng.CameraApi(bng)
-info = capi.get_annotations()
-print('annotation info', info)
-with open('annotation_info.txt', 'w') as f:
-    f.write(str(info))
+# # Get the annotation information
+# capi = beamngpy.api.beamng.CameraApi(bng)
+# info = capi.get_annotations()
+# print('annotation info', info)
+# with open('annotation_info.txt', 'w') as f:
+#     f.write(str(info))
 
-quit()
+# quit()
 
-model = 'pickup'
+model = ['pickup', 'racetruck'][1]
 os.makedirs('vehicle_'+model, exist_ok=True)
 
 # Create a scenario in west_coast_usa called 'example'
@@ -43,7 +43,7 @@ scenario = Scenario('gridmap_v2', 'Collect Mountain')
 vehicle = Vehicle('ego_vehicle', model=model, license='PYTHON')
 # Add it to our scenario at this position and rotation
 # scenario.add_vehicle(vehicle, pos=(-717, 101, 118), rot_quat=(0, 0, 0.3826834, 0.9238795))
-scenario.add_vehicle(vehicle, pos=(-337.682, -491.360, 100.304), rot_quat=(0, 0, 0, 1))
+scenario.add_vehicle(vehicle, pos=(-337.682, -491.360, 101), rot_quat=(0, 0, 0, 1))
 # Place files defining our scenario for the simulator to read
 scenario.make(bng)
 
@@ -52,7 +52,7 @@ bng.scenario.load(scenario)
 bng.scenario.start()
 
 print('keep straight now')
-time.sleep(1)
+time.sleep(10)
 
 vehicle.poll_sensors()
 state = vehicle.state

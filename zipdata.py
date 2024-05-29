@@ -1,4 +1,5 @@
 import zipfile
+import json
 import os
 
 def zip_folder(folder_path, zip_path):
@@ -18,9 +19,23 @@ for folder in folders:
     # zip_file_path = f'data_zip/{folder}.zip'
     # zip_folder(folder_to_zip, zip_file_path)
 
-    if os.path.exists(f'data/{folder}/map2'):
-        continue
-    cmd = f'python reconstruction.py data/{folder}'
-    print(cmd)
-    os.system(cmd)
+    # if os.path.exists(f'data/{folder}/map2'):
+    #     continue
+    # cmd = f'python reconstruction.py data/{folder}'
+    # print(cmd)
+    # os.system(cmd)
+
+    # print(folder)
+    # with open(f'data/{folder}/cloud_config.txt', 'r') as f:
+    #     config = json.load(f)
+    # with open(f'data/{folder}/map2/info.txt', 'r') as f:
+    #     info = json.load(f)
+    # if 'depth_bit' in info:
+    #     continue
+    # info['depth_bit'] = config['depth_bit']
+    # info['start_frame'] = config['start_frame']
+    # info['end_frame'] = config['end_frame']
+    # with open(f'data/{folder}/map2/info.txt', 'w') as f:
+    #     json.dump(info, f)
+    # os.system(f'del data\\{folder}\\cloud_config.txt')
     

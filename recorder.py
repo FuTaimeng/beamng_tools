@@ -14,16 +14,16 @@ from beamngpy import BeamNGpy, Scenario, Vehicle
 from spawn_points import spawn_points
 
 mode = ['manual', 'ai-span'][0]
-spawn_pt = spawn_points['derby'][2]
+spawn_pt = spawn_points['automation_test_track'][0]
 
 scenario_name = spawn_pt['scenario_name']
 level_name = spawn_pt['point_name']
-model_name = 'pickup'
+model_name = 'racetruck'
 record_time = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
 
 scenario_name_display = scenario_name.replace('_', '-')
-# dataroot = f'data/{mode}_{scenario_name_display}_{level_name}_{model_name}_{record_time}'
-dataroot = 'data_test'
+dataroot = f'data2/{mode}_{scenario_name_display}_{level_name}_{model_name}_{record_time}'
+# dataroot = 'data_plane2'
 os.makedirs(dataroot, exist_ok=True)
 
 record_param = {

@@ -3,7 +3,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 
-path = 'vehicle_pickup'
+path = 'vehicle_racetruck'
 
 with open(os.path.sep.join((path, 'nodes.txt')), 'r') as f:
     nodes = eval(f.readline())
