@@ -29,16 +29,6 @@ block_size = 1000
 start_frame = 0
 end_frame = len(poses)
 
-config = {
-    'grid_length': grid_length,
-    'block_size': block_size,
-    'depth_bit': depth_bit,
-    'start_frame': start_frame,
-    'end_frame': end_frame
-}
-with open(os.path.sep.join((dataroot, 'cloud_config.txt')), 'w') as f:
-    json.dump(config, f)
-
 with open(os.path.sep.join((dataroot, 'cam_param.txt')), 'r') as f:
     cam_param = json.load(f)
 
@@ -281,7 +271,14 @@ if not old_mode:
     os.makedirs(os.path.sep.join((dataroot, map_folder, 'color')), exist_ok=True)
     os.makedirs(os.path.sep.join((dataroot, map_folder, 'annotation')), exist_ok=True)
 
-    infos.update({'num_block':len(heights), 'grid_length':grid_length, 'block_size':block_size})
+    infos.update({
+        'num_block':len(heights), 
+        'grid_length':grid_length, 
+        'block_size':block_size, 
+        'depth_bit':depth_bit,
+        'start_frame':start_frame,
+        'end_frame':end_frame,
+    })
     with open(os.path.sep.join((dataroot, map_folder, 'info.txt')), 'w') as f:
         json.dump(infos, f)
 
