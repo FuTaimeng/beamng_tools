@@ -1,9 +1,11 @@
 0.30/
 data*/
+drive/
 
 .vscode/
 __pycache__/
 
 *.ply
+*.pt
 
 test.png
