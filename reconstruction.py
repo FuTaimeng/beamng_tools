@@ -8,53 +8,6 @@ import numpy as np
 import pypose as pp
 import open3d as o3d
 
-map_folder = 'map2'
-
-if len(sys.argv) >= 2:
-    dataroot = sys.argv[1]
-else:
-    dataroot = 'data/manual_gridmap-v2_terrain-types_pickup_24-04-24-21-53-52'
-poses = np.loadtxt(os.path.sep.join((dataroot, 'pose.txt')))
-
-depth_bit = 16
-depth_type_max = 2**depth_bit - 1
-depth_type = np.uint8 if depth_bit==8 else np.uint16
-
-old_mode = False
-if not old_mode:
-    grid_length = 0.02
-else:
-    grid_length = 0.2
-block_size = 1000
-start_frame = 0
-end_frame = len(poses)
-
-with open(os.path.sep.join((dataroot, 'cam_param.txt')), 'r') as f:
-    cam_param = json.load(f)
-
-resolution = cam_param['resolution']
-fov_y = cam_param['fov_y'] /180*np.pi
-near_far_planes = cam_param['near_far_planes']
-f = resolution[1]/2 / np.tan(fov_y/2)
-cx, cy = resolution[0]/2, resolution[1]/2
-K = np.array([
-    f, 0, cx,
-    0, f, cy,
-    0,  0,  1
-], dtype=float).reshape(3,3)
-K_inv = np.linalg.inv(K)
-print('K_inv', K_inv)
-
-trans = torch.tensor(cam_param['trans'], dtype=torch.float32)
-z = torch.tensor(cam_param['dir'], dtype=torch.float32)
-z /= z.norm()
-y = -torch.tensor(cam_param['up'], dtype=torch.float32)
-y /= y.norm()
-x = torch.cross(y, z, dim=0)
-x /= x.norm()
-rot = torch.stack((x, y, z)).T
-q = pp.from_matrix(rot, ltype=pp.SO3_type)
-extrinsic = pp.SE3(torch.cat((trans, q.tensor())))
 
 seg2col = np.zeros((16, 3), dtype=np.uint8)
 from friction_knowledge import material_info
@@ -64,12 +17,64 @@ for m in material_info.values():
     seg2col[idx] = np.array(col, dtype=np.uint8)
 print('seg2col', seg2col)
 
+if __name__ == '__main__':
+
+    map_folder = 'map2'
+
+    if len(sys.argv) >= 2:
+        dataroot = sys.argv[1]
+    else:
+        dataroot = 'data/manual_gridmap-v2_terrain-types_pickup_24-04-24-21-53-52'
+    poses = np.loadtxt(os.path.sep.join((dataroot, 'pose.txt')))
+
+    depth_bit = 16
+
+    old_mode = False
+    if not old_mode:
+        grid_length = 0.02
+    else:
+        grid_length = 0.2
+    block_size = 1000
+    start_frame = 0
+    end_frame = len(poses)
+
+    with open(os.path.sep.join((dataroot, 'cam_param.txt')), 'r') as f:
+        cam_param = json.load(f)
+
+    resolution = cam_param['resolution']
+    fov_y = cam_param['fov_y'] /180*np.pi
+    near_far_planes = cam_param['near_far_planes']
+    f = resolution[1]/2 / np.tan(fov_y/2)
+    cx, cy = resolution[0]/2, resolution[1]/2
+    K = np.array([
+        f, 0, cx,
+        0, f, cy,
+        0,  0,  1
+    ], dtype=float).reshape(3,3)
+    K_inv = np.linalg.inv(K)
+    print('K_inv', K_inv)
+
+    trans = torch.tensor(cam_param['trans'], dtype=torch.float32)
+    z = torch.tensor(cam_param['dir'], dtype=torch.float32)
+    z /= z.norm()
+    y = -torch.tensor(cam_param['up'], dtype=torch.float32)
+    y /= y.norm()
+    x = torch.cross(y, z, dim=0)
+    x /= x.norm()
+    rot = torch.stack((x, y, z)).T
+    q = pp.from_matrix(rot, ltype=pp.SO3_type)
+    extrinsic = pp.SE3(torch.cat((trans, q.tensor())))
+
 
 class MapBlock:
-    def __init__(self, bID, grid_length, block_size=1000):
+    def __init__(self, bID, grid_length, block_size=1000, mode='accumulate', depth_bit=16):
         self.bID = bID
         self.grid_length = grid_length
         self.block_size = block_size
+        self.mode = mode
+        
+        self.depth_type_max = 2**depth_bit - 1
+        self.depth_type = np.uint8 if depth_bit==8 else np.uint16
         
         block_length = grid_length * block_size
         self.start_pos = np.array([bID[0]*block_length, bID[1]*block_length], dtype=float)
@@ -90,11 +95,23 @@ class MapBlock:
         ij = self.xy2ij(points[:, :2])
         assert np.all(ij < self.block_size) and np.all(ij >= 0)
 
-        self.count[ij[:, 0], ij[:, 1]] += 1
-        self.height[ij[:, 0], ij[:, 1]] += points[:, 2]
-        self.rgb[ij[:, 0], ij[:, 1]] += colors
-        self.seg[ij[:, 0], ij[:, 1], annotations] += 1
+        if self.mode == 'accumulate':
+            self.count[ij[:, 0], ij[:, 1]] += 1
+            self.height[ij[:, 0], ij[:, 1]] += points[:, 2]
+            self.rgb[ij[:, 0], ij[:, 1]] += colors
+            self.seg[ij[:, 0], ij[:, 1], annotations] += 1
 
+        elif self.mode == 'minimum':
+            swap = np.argmin(np.stack([self.height[ij[:, 0], ij[:, 1]], points[:, 2]]), axis=0)
+            swap[self.count[ij[:, 0], ij[:, 1]] == 0] = 1
+            swap = swap.astype(bool)
+
+            self.count[ij[:, 0], ij[:, 1]] = 1
+            self.height[ij[:, 0], ij[:, 1]] = np.where(swap, points[:, 2], self.height[ij[:, 0], ij[:, 1]])
+            self.rgb[ij[:, 0], ij[:, 1]] = np.where(swap[..., np.newaxis], colors, self.rgb[ij[:, 0], ij[:, 1]])
+            self.seg[ij[:, 0], ij[:, 1], :] = 0
+            self.seg[ij[:, 0], ij[:, 1], annotations] = 1
+        
     def get_points(self):
         mask = self.count > 0
         grid = self.grid[mask]
@@ -113,8 +130,8 @@ class MapBlock:
         min_h, max_h = np.min(height), np.max(height)
         if max_h - min_h < 0.1:
             min_h = max_h - 0.1
-        height_img = np.zeros(self.height.shape, dtype=depth_type)
-        height_img[mask] = np.round((height - min_h) / (max_h - min_h) * (depth_type_max-1) + 1)
+        height_img = np.zeros(self.height.shape, dtype=self.depth_type)
+        height_img[mask] = np.round((height - min_h) / (max_h - min_h) * (self.depth_type_max-1) + 1)
 
         rgb_img = np.zeros(self.rgb.shape, dtype=np.uint8)
         rgb_img[mask] = np.round(self.rgb[mask] / count[..., np.newaxis] * 255)
@@ -136,11 +153,12 @@ class MapBlock:
         return height_img, rgb_img, seg_img, (min_h, max_h)
 
 class Map:
-    def __init__(self, grid_length, block_size=1000):
+    def __init__(self, grid_length, block_size=1000, mode='accumulate', depth_bit=16):
         self.grid_length = grid_length
         self.block_size = block_size
         self.block_length = grid_length * block_size
-
+        self.mode = mode
+        self.depth_bit = depth_bit
         self.blocks = {}
 
     def xy2block(self, xy):
@@ -152,7 +170,7 @@ class Map:
         bID = list(map(tuple, bID))
         for b in bID:
             if b not in self.blocks:
-                self.blocks[b] = MapBlock(b, self.grid_length, self.block_size)
+                self.blocks[b] = MapBlock(b, self.grid_length, self.block_size, self.mode, self.depth_bit)
             mask = np.logical_and(ij[:, 0] == b[0], ij[:, 1] == b[1])
             self.blocks[b].add_points(points[mask], colors[mask], annotations[mask])
             
@@ -181,118 +199,120 @@ class Map:
         return heights, colors, segments, infos
 
 
-terrian_map = Map(grid_length, block_size)
+if __name__ == '__main__':
 
-for idx in range(start_frame, end_frame):
-    print('\rprocessing {}/{} ...'.format(idx, end_frame), end='')
+    terrian_map = Map(grid_length, block_size)
 
-    pose = pp.SE3(poses[idx, :7])
-    rgb = cv2.imread(os.path.sep.join((dataroot, 'rgb', '{:0>6}.png'.format(idx))), cv2.IMREAD_COLOR)
-    seg = cv2.imread(os.path.sep.join((dataroot, 'seg', '{:0>6}.png'.format(idx))), cv2.IMREAD_COLOR)
-    depth = np.load(os.path.sep.join((dataroot, 'depth', '{:0>6}.npy'.format(idx))))
+    for idx in range(start_frame, end_frame):
+        print('\rprocessing {}/{} ...'.format(idx, end_frame), end='')
 
-    blur = cv2.GaussianBlur(rgb, (19,19), 0)
-    hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
-    seg = cv2.cvtColor(seg, cv2.COLOR_BGR2RGB)
+        pose = pp.SE3(poses[idx, :7])
+        rgb = cv2.imread(os.path.sep.join((dataroot, 'rgb', '{:0>6}.png'.format(idx))), cv2.IMREAD_COLOR)
+        seg = cv2.imread(os.path.sep.join((dataroot, 'seg', '{:0>6}.png'.format(idx))), cv2.IMREAD_COLOR)
+        depth = np.load(os.path.sep.join((dataroot, 'depth', '{:0>6}.npy'.format(idx))))
 
-    # cv2.imshow('rgb', rgb)
-    # cv2.imshow('hsv', hsv)
-    # annotations = np.zeros_like(rgb)
-    # for m in material_info.values():
-    #     l = np.array(m['annotation'], dtype=np.uint8)
-    #     region = np.all(seg == l, axis=-1)
-    #     if 'appearance_h_range' in m:
-    #         h_min, h_max = m['appearance_h_range']
-    #         s_min, s_max = m['appearance_s_range']
-    #         region = np.logical_and(region, hsv[:, :, 0]>=h_min)
-    #         region = np.logical_and(region, hsv[:, :, 0]<h_max)
-    #         region = np.logical_and(region, hsv[:, :, 1]>=s_min)
-    #         region = np.logical_and(region, hsv[:, :, 1]<s_max)
-    #     annotations[region] = m['index']
-    # cv2.imshow('annotation', annotations*20)
-    # cv2.waitKey(0)
+        blur = cv2.GaussianBlur(rgb, (19,19), 0)
+        hsv = cv2.cvtColor(blur, cv2.COLOR_BGR2HSV)
+        seg = cv2.cvtColor(seg, cv2.COLOR_BGR2RGB)
 
-    rgb = rgb.astype(float) / 255
-    depth = depth.astype(float)
+        # cv2.imshow('rgb', rgb)
+        # cv2.imshow('hsv', hsv)
+        # annotations = np.zeros_like(rgb)
+        # for m in material_info.values():
+        #     l = np.array(m['annotation'], dtype=np.uint8)
+        #     region = np.all(seg == l, axis=-1)
+        #     if 'appearance_h_range' in m:
+        #         h_min, h_max = m['appearance_h_range']
+        #         s_min, s_max = m['appearance_s_range']
+        #         region = np.logical_and(region, hsv[:, :, 0]>=h_min)
+        #         region = np.logical_and(region, hsv[:, :, 0]<h_max)
+        #         region = np.logical_and(region, hsv[:, :, 1]>=s_min)
+        #         region = np.logical_and(region, hsv[:, :, 1]<s_max)
+        #     annotations[region] = m['index']
+        # cv2.imshow('annotation', annotations*20)
+        # cv2.waitKey(0)
 
-    # mask = np.zeros(resolution[0]*resolution[1], dtype=bool)
-    # mask[::10] = True
-    mask = np.ones(resolution[0]*resolution[1], dtype=bool)
-    mask = np.logical_and(mask, depth.reshape(-1) < near_far_planes[1]/10)
+        rgb = rgb.astype(float) / 255
+        depth = depth.astype(float)
 
-    u_lin = np.linspace(0, resolution[0]-1, resolution[0])
-    v_lin = np.linspace(0, resolution[1]-1, resolution[1])
-    u, v = np.meshgrid(u_lin, v_lin, indexing='xy')
-    uv1 = np.transpose(np.stack([u, v, np.ones_like(u)]), axes=(1,2,0))
+        # mask = np.zeros(resolution[0]*resolution[1], dtype=bool)
+        # mask[::10] = True
+        mask = np.ones(resolution[0]*resolution[1], dtype=bool)
+        mask = np.logical_and(mask, depth.reshape(-1) < near_far_planes[1]/10)
 
-    uv1 = uv1.reshape(-1,3,1)[mask, :, :]
-    depth = depth.reshape(-1,1)[mask, :]
-    rgb = rgb.reshape(-1,3)[mask, :]
-    seg = seg.reshape(-1,3)[mask, :]
-    hsv = hsv.reshape(-1,3)[mask, :]
+        u_lin = np.linspace(0, resolution[0]-1, resolution[0])
+        v_lin = np.linspace(0, resolution[1]-1, resolution[1])
+        u, v = np.meshgrid(u_lin, v_lin, indexing='xy')
+        uv1 = np.transpose(np.stack([u, v, np.ones_like(u)]), axes=(1,2,0))
 
-    pts_cam = (K_inv.reshape(1,3,3) @ uv1).squeeze(-1) * depth
-    pts_cam = torch.tensor(pts_cam, dtype=torch.float32)
+        uv1 = uv1.reshape(-1,3,1)[mask, :, :]
+        depth = depth.reshape(-1,1)[mask, :]
+        rgb = rgb.reshape(-1,3)[mask, :]
+        seg = seg.reshape(-1,3)[mask, :]
+        hsv = hsv.reshape(-1,3)[mask, :]
 
-    pts_veh = extrinsic @ pts_cam
+        pts_cam = (K_inv.reshape(1,3,3) @ uv1).squeeze(-1) * depth
+        pts_cam = torch.tensor(pts_cam, dtype=torch.float32)
 
-    height_mask = pts_veh[:, 2] < 1.0
-    pts_veh = pts_veh[height_mask]
-    rgb = rgb[height_mask]
-    seg = seg[height_mask]
-    hsv = hsv[height_mask]
+        pts_veh = extrinsic @ pts_cam
 
-    annotations = np.zeros(len(seg), dtype=int)
-    for m in material_info.values():
-        l = np.array(m['annotation'], dtype=np.uint8)
-        region = np.all(seg == l, axis=-1)
-        if 'appearance_h_range' in m:
-            h_min, h_max = m['appearance_h_range']
-            s_min, s_max = m['appearance_s_range']
-            region = np.logical_and(region, hsv[:, 0]>=h_min)
-            region = np.logical_and(region, hsv[:, 0]<h_max)
-            region = np.logical_and(region, hsv[:, 1]>=s_min)
-            region = np.logical_and(region, hsv[:, 1]<s_max)
-        annotations[region] = m['index']
+        height_mask = pts_veh[:, 2] < 1.0
+        pts_veh = pts_veh[height_mask]
+        rgb = rgb[height_mask]
+        seg = seg[height_mask]
+        hsv = hsv[height_mask]
 
-    pts_world = (pose @ pts_veh).numpy()
+        annotations = np.zeros(len(seg), dtype=int)
+        for m in material_info.values():
+            l = np.array(m['annotation'], dtype=np.uint8)
+            region = np.all(seg == l, axis=-1)
+            if 'appearance_h_range' in m:
+                h_min, h_max = m['appearance_h_range']
+                s_min, s_max = m['appearance_s_range']
+                region = np.logical_and(region, hsv[:, 0]>=h_min)
+                region = np.logical_and(region, hsv[:, 0]<h_max)
+                region = np.logical_and(region, hsv[:, 1]>=s_min)
+                region = np.logical_and(region, hsv[:, 1]<s_max)
+            annotations[region] = m['index']
 
-    terrian_map.add_points(pts_world, rgb, annotations)
+        pts_world = (pose @ pts_veh).numpy()
 
-if not old_mode:
-    t0 = time.time()
-    heights, colors, annotations, infos = terrian_map.get_images()
-    t1 = time.time()
-    print('get_images time:', t1-t0)
+        terrian_map.add_points(pts_world, rgb, annotations)
 
-    if os.path.isdir(os.path.sep.join((dataroot, map_folder))):
-        os.system('rm -r '+os.path.sep.join((dataroot, map_folder)))
-    os.makedirs(os.path.sep.join((dataroot, map_folder, 'height')), exist_ok=True)
-    os.makedirs(os.path.sep.join((dataroot, map_folder, 'color')), exist_ok=True)
-    os.makedirs(os.path.sep.join((dataroot, map_folder, 'annotation')), exist_ok=True)
+    if not old_mode:
+        t0 = time.time()
+        heights, colors, annotations, infos = terrian_map.get_images()
+        t1 = time.time()
+        print('get_images time:', t1-t0)
 
-    infos.update({
-        'num_block':len(heights), 
-        'grid_length':grid_length, 
-        'block_size':block_size, 
-        'depth_bit':depth_bit,
-        'start_frame':start_frame,
-        'end_frame':end_frame,
-    })
-    with open(os.path.sep.join((dataroot, map_folder, 'info.txt')), 'w') as f:
-        json.dump(infos, f)
+        if os.path.isdir(os.path.sep.join((dataroot, map_folder))):
+            os.system('rm -r '+os.path.sep.join((dataroot, map_folder)))
+        os.makedirs(os.path.sep.join((dataroot, map_folder, 'height')), exist_ok=True)
+        os.makedirs(os.path.sep.join((dataroot, map_folder, 'color')), exist_ok=True)
+        os.makedirs(os.path.sep.join((dataroot, map_folder, 'annotation')), exist_ok=True)
 
-    for i in range(len(heights)):
-        cv2.imwrite(os.path.sep.join((dataroot, map_folder, 'height', f'{i:0>6d}.png')), heights[i])
-        cv2.imwrite(os.path.sep.join((dataroot, map_folder, 'color', f'{i:0>6d}.png')), colors[i])
-        cv2.imwrite(os.path.sep.join((dataroot, map_folder, 'annotation', f'{i:0>6d}.png')), annotations[i])
+        infos.update({
+            'num_block':len(heights), 
+            'grid_length':grid_length, 
+            'block_size':block_size, 
+            'depth_bit':depth_bit,
+            'start_frame':start_frame,
+            'end_frame':end_frame,
+        })
+        with open(os.path.sep.join((dataroot, map_folder, 'info.txt')), 'w') as f:
+            json.dump(infos, f)
 
-    points, colors = terrian_map.get_pointcloud()
-    points, colors = points[::100], colors[::100]
-    points_colors = np.concatenate((points, colors), axis=-1)
-    # np.save(os.path.sep.join((dataroot, 'cloud.npy')), points_colors)
+        for i in range(len(heights)):
+            cv2.imwrite(os.path.sep.join((dataroot, map_folder, 'height', f'{i:0>6d}.png')), heights[i])
+            cv2.imwrite(os.path.sep.join((dataroot, map_folder, 'color', f'{i:0>6d}.png')), colors[i])
+            cv2.imwrite(os.path.sep.join((dataroot, map_folder, 'annotation', f'{i:0>6d}.png')), annotations[i])
 
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points)
-    pcd.colors = o3d.utility.Vector3dVector(colors)
-    o3d.io.write_point_cloud(os.path.sep.join((dataroot, map_folder, 'cloud.ply')), pcd, write_ascii=False)
+        points, colors = terrian_map.get_pointcloud()
+        points, colors = points[::100], colors[::100]
+        points_colors = np.concatenate((points, colors), axis=-1)
+        # np.save(os.path.sep.join((dataroot, 'cloud.npy')), points_colors)
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+        pcd.colors = o3d.utility.Vector3dVector(colors)
+        o3d.io.write_point_cloud(os.path.sep.join((dataroot, map_folder, 'cloud.ply')), pcd, write_ascii=False)
