@@ -28,6 +28,8 @@ def extract(name):
 
     pose = data['observation']['state'][st:end, 0:7]
     pose = pp.SE3(pose)
+    z_180 = pp.se3([0, 0, 0, 0, 0, np.pi]).Exp()
+    pose = pose @ z_180
 
     rgbmap = data['observation']['rgbmap'][st:end]
     rgbmap = rgbmap.permute(0, 2, 3, 1)
@@ -57,8 +59,8 @@ def extract(name):
     ################################################################################################################################################################
     # reconstruction
     ################################################################################################################################################################
-    y = torch.linspace(0, 10, 64)
-    x = torch.linspace(5, -5, 64)
+    y = torch.linspace(0, -10, 64)
+    x = torch.linspace(-5, 5, 64)
     yy, xx = torch.meshgrid([y, x], indexing='ij')
     xx = xx.unsqueeze(0).expand(N, -1, -1)
     yy = yy.unsqueeze(0).expand(N, -1, -1)
@@ -141,9 +143,12 @@ def extract(name):
         cv2.imwrite(f'{root}/{name}/{map_folder}/annotation/{i:0>6d}.png', img)
 
     points, colors = terrian_map.get_pointcloud()
-    points, colors = points[::100], colors[::100]
-    points_colors = np.concatenate((points, colors), axis=-1)
-    # np.save(os.path.sep.join((dataroot, 'cloud.npy')), points_colors)
+    # points, colors = points[::100], colors[::100]
+    # pos = pose.translation().numpy()
+    # pos_col = np.zeros_like(pos)
+    # pos_col[:, 2] = 1
+    # points = np.concatenate([points, pos], axis=0)
+    # colors = np.concatenate([colors, pos_col], axis=0)
 
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
@@ -191,11 +196,16 @@ def extract(name):
     np.savetxt(f'{root}/{name}/wheel_speed.txt', wheel_speed.numpy())
     np.savetxt(f'{root}/{name}/control.txt', control.numpy())
 
+# names = [name.replace('.pt', '') for name in os.listdir(raw_root) if '.pt' in name]
+# print(names)
+# for name in names:
+#     print(f'extracting {name}...')
+#     extract(name)
 
-# name = '20210826_34'
-# extract(name)
 
-
+################################################################################################################################################################
+# tartandrive vehicle config
+################################################################################################################################################################
 def vehicle_config():
     total_mass = 900
     mass = np.ones(8*3*3) * total_mass/(8*3*3)
@@ -204,8 +214,8 @@ def vehicle_config():
     width = 156.97 /100
     height = 194.56 /100
     ground_clearance = 28.96 /100
-    x = np.linspace(-width/2, width/2, 3)
-    y = np.linspace(length*3/7, -length*4/7, 8)
+    x = np.linspace(width/2, -width/2, 3)
+    y = np.linspace(-length*3/7, length*4/7, 8)
     xx, yy = np.meshgrid(x, y)
     xx = np.repeat(xx[..., np.newaxis], 3, axis=2)
     yy = np.repeat(yy[..., np.newaxis], 3, axis=2)
@@ -220,10 +230,10 @@ def vehicle_config():
 
     wheel_base = 293 /100
     center2center = 132 /100
-    FL_center = np.array([-center2center/2,  wheel_base*2/5, wheel_radius])
-    FR_center = np.array([ center2center/2,  wheel_base*2/5, wheel_radius])
-    RL_center = np.array([-center2center/2, -wheel_base*3/5, wheel_radius])
-    RR_center = np.array([ center2center/2, -wheel_base*3/5, wheel_radius])
+    FL_center = np.array([ center2center/2, -wheel_base*2/5, wheel_radius])
+    FR_center = np.array([-center2center/2, -wheel_base*2/5, wheel_radius])
+    RL_center = np.array([ center2center/2,  wheel_base*3/5, wheel_radius])
+    RR_center = np.array([-center2center/2,  wheel_base*3/5, wheel_radius])
 
     cog = np.sum(mass[..., np.newaxis] * mass_pts, axis=0) / total_mass
     def calc_inertia_mat(pos, mass, cog):
@@ -256,5 +266,3 @@ def vehicle_config():
         f.write(json.dumps(res))
 
 vehicle_config()
-
-print('done')
